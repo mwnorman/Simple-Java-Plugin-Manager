@@ -9,14 +9,14 @@ The 'trick' is to leverage the little-used Java artifact
 Once a <tt>package-info.class</tt> file is found, the <tt>java.lang.Package</tt> for it can be loaded which in turn forces the resolution of any imports and annotations in the <tt>package-info</tt> class. In the following example, three different 'helper' classes are declared to be plugins:
 
 ```java
-@Plugin({HelperClass1.class, HelperClass2.class, HelperClass3.class})
+@Plugin({Helper1.class, Helper2.class, Helper3.class})
 package simple.test;
 
 import org.simple.pluginspi.Plugin;
 
-import simple.test.HelperClass1;
-import simple.test.HelperClass2;
-import simple.test.HelperClass3;
+import simple.test.Helper1;
+import simple.test.Helper2;
+import simple.test.Helper3;
 ```
 Each helper class implements a common <tt>Helper</tt> interface:
 

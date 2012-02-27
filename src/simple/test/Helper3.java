@@ -7,6 +7,6 @@ public class Helper3 implements Helper {
     }
     
     public void help() {
-        System.out.println("that's the last bit of help yer gonna get!");
+        System.out.println("that's the last bit of help yer gonna get outa me!");
     }
 }
