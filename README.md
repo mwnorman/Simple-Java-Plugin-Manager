@@ -24,6 +24,39 @@ Each helper class implements a common <tt>Helper</tt> interface:
 public interface Helper {
     public void help();
 }
+
+public class Helper1 implements Helper {
+
+    public Helper1() {
+        //public default constructor required
+    }
+    
+    public void help() {
+        System.out.println("with a little help from my plugin friends");
+    }
+}
+
+public class Helper2 implements Helper {
+
+    public Helper2() {
+        //public default constructor required
+    }
+    
+    public void help() {
+        System.out.println("some more help");
+    }
+}
+
+public class Helper3 implements Helper {
+
+    public Helper3() {
+        //public default constructor required
+    }
+    
+    public void help() {
+        System.out.println("that's the last bit of help yer gonna get outa me!");
+    }
+}
 ```
 
 Now it is possible to ask the <tt>PluginManager</tt> to find all <tt>Helper</tt>'s without having to know exactly where they are on the classpath - or even what package they are in:
@@ -49,4 +82,6 @@ public class Main {
     }
 }
 ```
-
+    with a little help from my plugin friends
+    some more help
+    that's the last bit of help yer gonna get outa me!
