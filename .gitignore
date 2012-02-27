@@ -1,0 +1,5 @@
+.DS_Store
+*.class
+classes
+bin
+.settings
