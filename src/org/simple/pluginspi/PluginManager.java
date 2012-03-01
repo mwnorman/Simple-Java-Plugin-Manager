@@ -24,6 +24,7 @@ package org.simple.pluginspi;
 //javase imports
 import java.io.File;
 import java.io.FilenameFilter;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -31,7 +32,11 @@ import java.util.StringTokenizer;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Logger;
+import static java.util.logging.Level.FINEST;
 import static java.util.logging.Level.SEVERE;
+
+//java eXtension imports
+import javax.annotation.PostConstruct;
 
 public class PluginManager {
 
@@ -50,18 +55,24 @@ public class PluginManager {
     public static PluginManager getPluginManager() {
         return PluginManagerHelper.getPluginManager();
     }
-
-    protected Logger log;
+    public static void setPluginManager(PluginManager pluginManager) {
+        PluginManagerHelper.setPluginManager(pluginManager);
+    }
+    
+    protected Logger log = null;
     protected List<PackageInfo> foundPackages = new ArrayList<PackageInfo>();
 
     //non-public constructor so only access is via static getPluginManager()
     private PluginManager() {
+        log =  Logger.getLogger(this.getClass().getPackage().getName());
         String javaClassPath = null;
         try {
             javaClassPath = System.getProperty("java.class.path");
         }
         catch (Exception e) {
-        	severe(log, "unable to retrieve java.class.path property", e);
+            if (log != null) {
+                log.log(SEVERE, "unable to retrieve java.class.path property", e);
+            }
         }
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         if (cl == null) {
@@ -96,7 +107,9 @@ public class PluginManager {
                             foundPackages.add(pi);
                         }
                         catch (Exception e) {
-                            severe(log, "problem loading " + packageInfoClassName, e);
+                            if (log != null) {
+                                log.log(SEVERE, "problem loading " + packageInfoClassName, e);
+                            }
                         }
                     }
                 }
@@ -112,9 +125,12 @@ public class PluginManager {
                     try {
                         Package pkg = cl.loadClass(className).getPackage();
                         packageInfo.pkg = pkg;
+                        if (log != null) {
+                            log.log(FINEST, "found plugin(s) in package: " + pkg.getName());
+                        }
                     }
                     catch (Exception e) {
-                        severe(log, "problem loading " + className, e);
+                        log.log(SEVERE, "problem loading " + className, e);
                     }
                 }
             }
@@ -123,7 +139,7 @@ public class PluginManager {
 
     public Logger getLog() {
         return log;
-    }
+    }    
     public void setLog(Logger log) {
         this.log = log;
     }
@@ -137,13 +153,40 @@ public class PluginManager {
                     for (Class<?> interfaz : c1.getInterfaces()) {
                         if (interfaz.equals(pluginClass)) {
                             Class<? extends T> c2 = c1.asSubclass(pluginClass);
+                            if (log != null) {
+                                StringBuilder sb = new StringBuilder("found <");
+                                sb.append(pluginClass.getName());
+                                sb.append(">plugin: ");
+                                sb.append(c2.getName());
+                                log.log(FINEST, sb.toString());
+                            }
                             T newPlugin;
                             try {
                                 newPlugin = c2.newInstance();
                                 plugins.add(newPlugin);
+                                try {
+                                    Method[] declaredMethods = c2.getDeclaredMethods();
+                                    for (Method m : declaredMethods) {
+                                        if (m.isAnnotationPresent(PostConstruct.class)) {
+                                            if (!m.isAccessible()) {
+                                                m.setAccessible(true);
+                                            }
+                                            m.invoke(newPlugin);
+                                        }
+                                    }
+                                }
+                                catch (Exception e) {
+                                    if (log != null) {
+                                        log.log(SEVERE, "problem with plugin " + 
+                                            c2.getSimpleName() + "'s PostConstruct method " , e);
+                                    }
+                                }
                             }
                             catch (Exception e) {
-                                severe(log, "problem creating plugin " + c2.getSimpleName(), e);
+                                if (log != null) {
+                                    log.log(SEVERE, "problem creating plugin " + c2.getSimpleName(),
+                                        e);
+                                }
                             }
                         }
                     }
@@ -181,20 +224,9 @@ public class PluginManager {
             }
         }
         catch (Exception e) {
-            severe(log, "problem scanning jar for matching files", e);
-        }
-    }
-
-    static void severe(Logger log, String msg, Exception e) {
-        if (log != null) {
-            log.log(SEVERE, msg, e);
-        }
-    }
-    
-    static class PluginManagerHelper {
-        static PluginManager PLUGIN_MANAGER_SINGLETON = new PluginManager();
-        static PluginManager getPluginManager() {
-            return PluginManagerHelper.PLUGIN_MANAGER_SINGLETON;
+            if (log != null) {
+                log.log(SEVERE, "problem scanning jar for matching files", e);
+            }
         }
     }
     
@@ -202,5 +234,15 @@ public class PluginManager {
         File rootPath;
         File packageInfoClass;
         Package pkg;
+    }
+    
+    static class PluginManagerHelper {
+        static PluginManager PLUGIN_MANAGER_SINGLETON = new PluginManager();
+        static PluginManager getPluginManager() {
+            return PluginManagerHelper.PLUGIN_MANAGER_SINGLETON;
+        }
+        static void setPluginManager(PluginManager pluginManager) {
+            PLUGIN_MANAGER_SINGLETON = pluginManager;
+        }
     }
 }
