@@ -64,7 +64,7 @@ public class PluginManager {
 
     //non-public constructor so only access is via static getPluginManager()
     private PluginManager() {
-        log =  Logger.getLogger(this.getClass().getPackage().getName());
+        log = Logger.getLogger(this.getClass().getPackage().getName());
         String javaClassPath = null;
         try {
             javaClassPath = System.getProperty("java.class.path");
@@ -130,7 +130,9 @@ public class PluginManager {
                         }
                     }
                     catch (Exception e) {
-                        log.log(SEVERE, "problem loading " + className, e);
+                        if (log != null) {
+                            log.log(SEVERE, "problem loading " + className, e);
+                        }
                     }
                 }
             }
