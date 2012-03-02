@@ -24,6 +24,8 @@ package org.simple.pluginspi;
 //javase imports
 import java.io.File;
 import java.io.FilenameFilter;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -32,6 +34,9 @@ import java.util.StringTokenizer;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Logger;
+
+import static java.lang.annotation.ElementType.PACKAGE;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.logging.Level.FINEST;
 import static java.util.logging.Level.SEVERE;
 
@@ -247,4 +252,11 @@ public class PluginManager {
             PLUGIN_MANAGER_SINGLETON = pluginManager;
         }
     }
+    
+    @Retention(RUNTIME)
+    @Target(PACKAGE)
+    public static @interface Plugin {
+    	public Class<?>[] value() default {};
+    } 
+    
 }
