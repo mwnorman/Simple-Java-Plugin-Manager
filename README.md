@@ -1,7 +1,7 @@
 Simple Java Plugin Manager
 ==========================
 
-This is a very simple implementation of a plugin system for Java - it only has **two** classes!
+This is a very simple implementation of a plugin system for Java - it only has **one** class!
 
 The 'trick' is to leverage the little-used Java artifact
 <tt>package-info.class</tt>. This gives us a consistent pattern to search for while scanning the classpath (both directories and jar files).
@@ -12,7 +12,7 @@ Once a <tt>package-info.class</tt> file is found, the <tt>java.lang.Package</tt>
 @Plugin({Helper1.class, Helper2.class, Helper3.class})
 package simple.test;
 
-import org.simple.pluginspi.Plugin;
+import org.simple.pluginspi.PluginManager.Plugin;
 
 import simple.test.Helper1;
 import simple.test.Helper2;
@@ -24,6 +24,8 @@ Each helper class implements a common <tt>Helper</tt> interface:
 public interface Helper {
     public void help();
 }
+
+import javax.annotation.PostConstruct;
 
 public class Helper1 implements Helper {
 
