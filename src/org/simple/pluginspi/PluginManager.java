@@ -35,13 +35,12 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Logger;
 
+//java eXtension imports
+import javax.annotation.PostConstruct;
 import static java.lang.annotation.ElementType.PACKAGE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.logging.Level.FINEST;
 import static java.util.logging.Level.SEVERE;
-
-//java eXtension imports
-import javax.annotation.PostConstruct;
 
 public class PluginManager {
 
@@ -67,8 +66,8 @@ public class PluginManager {
     protected Logger log = null;
     protected List<PackageInfo> foundPackages = new ArrayList<PackageInfo>();
 
-    //non-public constructor so only access is via static getPluginManager()
-    private PluginManager() {
+    //non-public constructor so only access is via static getPluginManager/setPluginManager()
+    protected PluginManager() {
         log = Logger.getLogger(this.getClass().getPackage().getName());
         String javaClassPath = null;
         try {
