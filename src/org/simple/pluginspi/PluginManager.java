@@ -33,17 +33,20 @@ import java.util.List;
 import java.util.StringTokenizer;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 //java eXtension imports
 import javax.annotation.PostConstruct;
 import static java.lang.annotation.ElementType.PACKAGE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import static java.util.logging.Level.FINE;
 import static java.util.logging.Level.FINEST;
 import static java.util.logging.Level.SEVERE;
 
 public class PluginManager {
 
+	public static final String PLUGINMANAGER_LOGNAME = "org.simple.pluginspi";
     static final String DOT_CLASS = ".class";
     static final String PACKAGE_INFO_CLASS = "package-info" + DOT_CLASS;
     static final FilenameFilter PACKAGE_INFO_FILTER = new FilenameFilter() {
@@ -67,20 +70,33 @@ public class PluginManager {
     protected List<PackageInfo> foundPackages = new ArrayList<PackageInfo>();
 
     //non-public constructor so only access is via static getPluginManager/setPluginManager()
+    //however, a sub-class could override
     protected PluginManager() {
-        log = Logger.getLogger(this.getClass().getPackage().getName());
+    	super();
+    	initLog();
+    	scanForPluginPackages();
+    }
+    
+    protected void initLog() {
+        log = Logger.getLogger( PLUGINMANAGER_LOGNAME);
+    }
+    
+    protected void scanForPluginPackages() {
         String javaClassPath = null;
         try {
             javaClassPath = System.getProperty("java.class.path");
         }
         catch (Exception e) {
-            if (log != null) {
+        	if (log != null && log.isLoggable(SEVERE)) {
                 log.log(SEVERE, "unable to retrieve java.class.path property", e);
             }
         }
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         if (cl == null) {
             cl = ClassLoader.getSystemClassLoader();
+        }
+        if (log != null && log.isLoggable(FINE)) {
+        	log.log(FINE, "scanning classpath for plugins ...");
         }
         StringTokenizer tokenizer = new StringTokenizer(javaClassPath, File.pathSeparator);
         while (tokenizer.hasMoreTokens()) {
@@ -111,7 +127,7 @@ public class PluginManager {
                             foundPackages.add(pi);
                         }
                         catch (Exception e) {
-                            if (log != null) {
+                        	if (log != null && log.isLoggable(SEVERE)) {
                                 log.log(SEVERE, "problem loading " + packageInfoClassName, e);
                             }
                         }
@@ -129,12 +145,12 @@ public class PluginManager {
                     try {
                         Package pkg = cl.loadClass(className).getPackage();
                         packageInfo.pkg = pkg;
-                        if (log != null) {
-                            log.log(FINEST, "found plugin(s) in package: " + pkg.getName());
+                        if (log != null && log.isLoggable(FINE)) {
+                            log.log(FINE, "found plugin(s) in package: " + pkg.getName());
                         }
                     }
                     catch (Exception e) {
-                        if (log != null) {
+                    	if (log != null && log.isLoggable(SEVERE)) {
                             log.log(SEVERE, "problem loading " + className, e);
                         }
                     }
@@ -151,6 +167,12 @@ public class PluginManager {
     }
 
     public <T> List<T> findPlugins(Class<T> pluginClass) {
+    	if (log != null && log.isLoggable(FINE)) {
+            StringBuilder sb = new StringBuilder("scanning for <");
+            sb.append(pluginClass.getName());
+            sb.append(">plugins ... ");
+            log.log(FINE, sb.toString());
+    	}
         List<T> plugins = new ArrayList<T>();
         for (PackageInfo packageInfo : foundPackages) {
             Plugin p = packageInfo.pkg.getAnnotation(Plugin.class);
@@ -159,17 +181,24 @@ public class PluginManager {
                     for (Class<?> interfaz : c1.getInterfaces()) {
                         if (interfaz.equals(pluginClass)) {
                             Class<? extends T> c2 = c1.asSubclass(pluginClass);
-                            if (log != null) {
+                            if (log != null && log.isLoggable(FINE)) {
                                 StringBuilder sb = new StringBuilder("found <");
                                 sb.append(pluginClass.getName());
                                 sb.append(">plugin: ");
                                 sb.append(c2.getName());
-                                log.log(FINEST, sb.toString());
+                                log.log(FINE, sb.toString());
                             }
-                            T newPlugin;
+                            T newPlugin = null;
                             try {
                                 newPlugin = c2.newInstance();
-                                plugins.add(newPlugin);
+                            }
+                            catch (Exception e) {
+                            	if (log != null && log.isLoggable(SEVERE)) {
+                                    log.log(SEVERE, "problem creating plugin " + c2.getName() , e);
+                                }
+                            }
+                            if (newPlugin != null) {
+                            	plugins.add(newPlugin);
                                 try {
                                     Method[] declaredMethods = c2.getDeclaredMethods();
                                     for (Method m : declaredMethods) {
@@ -177,21 +206,21 @@ public class PluginManager {
                                             if (!m.isAccessible()) {
                                                 m.setAccessible(true);
                                             }
+                                            if (log != null && log.isLoggable(FINEST)) {
+                                                StringBuilder sb = new StringBuilder(
+                                                	"invoking @PostConstruct method on ");
+                                                sb.append(newPlugin.toString());
+                                                log.log(FINEST, sb.toString());
+                                            }
                                             m.invoke(newPlugin);
                                         }
                                     }
                                 }
                                 catch (Exception e) {
-                                    if (log != null) {
-                                        log.log(SEVERE, "problem with plugin " + 
-                                            c2.getSimpleName() + "'s PostConstruct method " , e);
+                                	if (log != null && log.isLoggable(SEVERE)) {
+                                        log.log(SEVERE, "problem invoking plugin " + 
+                                        	newPlugin.toString() + "'s @PostConstruct method " , e);
                                     }
-                                }
-                            }
-                            catch (Exception e) {
-                                if (log != null) {
-                                    log.log(SEVERE, "problem creating plugin " + c2.getSimpleName(),
-                                        e);
                                 }
                             }
                         }
@@ -207,6 +236,13 @@ public class PluginManager {
         if (currentDir.isDirectory()) {
             File[] childFiles = currentDir.listFiles(filter);
             for (int i = 0; i < childFiles.length; i++) {
+                if (log != null && log.isLoggable(Level.FINEST)) {
+                    StringBuilder sb = new StringBuilder("scan found ");
+                    sb.append(PACKAGE_INFO_CLASS);
+                    sb.append(' ');
+                    sb.append(childFiles[i].toString());
+                    log.log(FINEST, sb.toString());
+                }
                 matchingFiles.add(childFiles[i]);
             }
             String[] childDirs = currentDir.list(DIRECTORIES_FILTER);
@@ -225,12 +261,19 @@ public class PluginManager {
                 if (name.endsWith(PACKAGE_INFO_CLASS)) {
                     String className = name.substring(0, name.length() - DOT_CLASS.length())
                         .replaceAll("[\\\\,/]", ".");
+                    if (log != null && log.isLoggable(FINEST)) {
+                        StringBuilder sb = new StringBuilder("scan found class ");
+                        sb.append(className);
+                        sb.append(" in jar ");
+                        sb.append(jarfile);
+                        log.log(FINEST, sb.toString());
+                    }
                     matchingFiles.add(className);
                 }
             }
         }
         catch (Exception e) {
-            if (log != null) {
+        	if (log != null && log.isLoggable(SEVERE)) {
                 log.log(SEVERE, "problem scanning jar for matching files", e);
             }
         }
