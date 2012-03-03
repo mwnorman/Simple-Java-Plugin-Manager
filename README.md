@@ -89,6 +89,7 @@ public class Main {
     }
 }
 ```
+    Helper1 setUp
     with a little help from my plugin friends
     some more help
     that's the last bit of help yer gonna get outa me!
