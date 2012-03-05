@@ -12,6 +12,6 @@ public class Helper2 implements Helper {
     }
     
     public void help() {
-        System.out.printf("(some valuee=%d)some more help\n", someValue);
+        System.out.printf("(some value=%d)some more help\n", someValue);
     }
 }

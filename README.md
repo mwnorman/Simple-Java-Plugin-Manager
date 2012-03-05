@@ -55,7 +55,7 @@ public class Helper2 implements Helper {
     }
     
     public void help() {
-        System.out.println("some more help");
+        System.out.printf("(some value=%d)some more help\n", someValue);
     }
 }
 
@@ -95,6 +95,7 @@ public class Main {
     }
 }
 ```
+    Helper1 setUp
     with a little help from my plugin friends
-    some more help
+    (some value=3)some more help
     that's the last bit of help yer gonna get outa me!
