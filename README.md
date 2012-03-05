@@ -43,8 +43,13 @@ public class Helper1 implements Helper {
     }
 }
 
+import javax.annotation.Resource;
+
 public class Helper2 implements Helper {
 
+    @Resource(description="some random unique resource name", type = Integer.class)
+    int someValue;
+    
     public Helper2() {
         //public default constructor required
     }
@@ -82,6 +87,7 @@ public class Main {
 
     public static void main(String ...args) {
         PluginManager pluginManager = PluginManager.getPluginManager();
+        pluginManager.addResource("some random unique resource name", Integer.class, 3);
         List<Helper> helpers = pluginManager.findPlugins(Helper.class);
         for (Helper h : helpers) {
             h.help();

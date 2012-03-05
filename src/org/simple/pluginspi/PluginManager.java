@@ -26,10 +26,13 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -38,6 +41,7 @@ import java.util.logging.Logger;
 
 //java eXtension imports
 import javax.annotation.PostConstruct;
+import javax.annotation.Resource;
 import static java.lang.annotation.ElementType.PACKAGE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.logging.Level.FINE;
@@ -68,6 +72,7 @@ public class PluginManager {
     
     protected Logger log = null;
     protected List<PackageInfo> foundPackages = new ArrayList<PackageInfo>();
+    protected Map<String, ResourceInfo> resources = new HashMap<String, ResourceInfo>();
 
     //non-public constructor so only access is via static getPluginManager/setPluginManager()
     //however, a sub-class could override
@@ -75,6 +80,13 @@ public class PluginManager {
     	super();
     	initLog();
     	scanForPluginPackages();
+    }
+
+    public Logger getLog() {
+        return log;
+    }    
+    public void setLog(Logger log) {
+        this.log = log;
     }
     
     protected void initLog() {
@@ -159,13 +171,6 @@ public class PluginManager {
         }
     }
 
-    public Logger getLog() {
-        return log;
-    }    
-    public void setLog(Logger log) {
-        this.log = log;
-    }
-
     public <T> List<T> findPlugins(Class<T> pluginClass) {
     	if (log != null && log.isLoggable(FINE)) {
             StringBuilder sb = new StringBuilder("scanning for <");
@@ -199,6 +204,44 @@ public class PluginManager {
                             }
                             if (newPlugin != null) {
                             	plugins.add(newPlugin);
+                            	List<ResourceAnnotation> resourceAnnotations = new ArrayList<ResourceAnnotation>();
+                            	Field fields[] = c2.getDeclaredFields();
+                            	for (Field field : fields) {
+                            		if (field.isAnnotationPresent(Resource.class)) {
+                            			ResourceAnnotation ra = new ResourceAnnotation();
+                            			ra.field = field;
+                            			ra.resourceAnnotation = field.getAnnotation(Resource.class);
+                            			resourceAnnotations.add(ra);
+                            		}
+                            	}
+                            	for (ResourceAnnotation ra : resourceAnnotations) {
+                            		Resource resource = ra.resourceAnnotation;
+                            		ResourceInfo resourceInfo = resources.get(resource.description());
+                            		if (resourceInfo != null) {
+                            			if (resource.type().isAssignableFrom(resourceInfo.resourceType)) {
+                            				if (!ra.field.isAccessible()) {
+                            					ra.field.setAccessible(true);
+                            				}
+                            				try {
+                                                if (log != null && log.isLoggable(FINEST)) {
+                                                	log.log(FINEST, "injecting '" +
+                                                		resource.description() + "' into " +
+                                                		newPlugin.toString() + "." + 
+                                                		ra.field.getName());
+                                                }
+												ra.field.set(newPlugin, resourceInfo.resource);
+											}
+                            				catch (Exception e) {
+			                                	if (log != null && log.isLoggable(SEVERE)) {
+                                                	log.log(SEVERE, "problem injecting '" +
+                                                		resource.description() + "' into " +
+                                                		newPlugin.toString() + "." + 
+                                                		ra.field.getName());
+			                                    }
+											}
+                            			}
+                            		}
+                            	}
                                 try {
                                     Method[] declaredMethods = c2.getDeclaredMethods();
                                     for (Method m : declaredMethods) {
@@ -229,6 +272,16 @@ public class PluginManager {
             }
         }
         return plugins;
+    }
+    
+    public <T> void addResource(String description, Class<T> resourceType, T resource) {
+    	ResourceInfo resourceInfo = resources.get(description);
+    	if (resourceInfo == null) {
+    		resourceInfo = new ResourceInfo();
+    		resources.put(description, resourceInfo);
+    	}
+    	resourceInfo.resourceType = resourceType;
+    	resourceInfo.resource = resource;
     }
 
     static void scanDirForMatchingFiles(List<File> matchingFiles, File currentDir, FilenameFilter filter,
@@ -283,6 +336,16 @@ public class PluginManager {
         File rootPath;
         File packageInfoClass;
         Package pkg;
+    }
+    
+    static class ResourceInfo {
+        Class<?> resourceType;
+        Object resource;
+    }
+    
+    static class ResourceAnnotation {
+        Field field;
+        Resource resourceAnnotation;
     }
     
     static class PluginManagerHelper {
