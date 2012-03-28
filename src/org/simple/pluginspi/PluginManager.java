@@ -50,9 +50,13 @@ import static java.util.logging.Level.SEVERE;
 
 public class PluginManager {
 
-	public static final String PLUGINMANAGER_LOGNAME = "org.simple.pluginspi";
+    public static final String PLUGINMANAGER_LOGNAME = "org.simple.pluginspi";
+    static final String JAVA_CLASS_PATH = "java.class.path";
     static final String DOT_CLASS = ".class";
+    static final String DOT_JAR = ".jar";
+    static final String DOT_ZIP = ".zip";
     static final String PACKAGE_INFO_CLASS = "package-info" + DOT_CLASS;
+    static final String SLASH_REGEX = "[\\\\,/]";
     static final FilenameFilter PACKAGE_INFO_FILTER = new FilenameFilter() {
         public boolean accept(File dir, String name) {
             return name.endsWith(PACKAGE_INFO_CLASS);
@@ -90,17 +94,17 @@ public class PluginManager {
     }
     
     protected void initLog() {
-        log = Logger.getLogger( PLUGINMANAGER_LOGNAME);
+        log = Logger.getLogger(PLUGINMANAGER_LOGNAME);
     }
     
     protected void scanForPluginPackages() {
         String javaClassPath = null;
         try {
-            javaClassPath = System.getProperty("java.class.path");
+            javaClassPath = System.getProperty(JAVA_CLASS_PATH);
         }
         catch (Exception e) {
         	if (log != null && log.isLoggable(SEVERE)) {
-                log.log(SEVERE, "unable to retrieve java.class.path property", e);
+                log.log(SEVERE, "unable to retrieve " + JAVA_CLASS_PATH + " property", e);
             }
         }
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
@@ -127,20 +131,25 @@ public class PluginManager {
                     }
                 }
             }
-            else if (possibleStartingDir.isFile() && possibleStartingDir.getPath().endsWith(".jar")) {
-                List<String> packageInfoClassNames = new ArrayList<String>();
-                scanJarForMatchingFiles(packageInfoClassNames, possibleStartingDir, log);
-                if (packageInfoClassNames.size() > 0) {
-                    for (String packageInfoClassName : packageInfoClassNames) {
-                        try {
-                            PackageInfo pi = new PackageInfo();
-                            Package pkg = cl.loadClass(packageInfoClassName).getPackage();
-                            pi.pkg = pkg;
-                            foundPackages.add(pi);
-                        }
-                        catch (Exception e) {
-                        	if (log != null && log.isLoggable(SEVERE)) {
-                                log.log(SEVERE, "problem loading " + packageInfoClassName, e);
+            else if (possibleStartingDir.isFile()) {
+                String possibleStartingDirPath = possibleStartingDir.getPath();
+                boolean dotJarorZip = possibleStartingDirPath.endsWith(DOT_JAR) ||
+                    possibleStartingDirPath.endsWith(DOT_ZIP);
+                if (dotJarorZip) {
+                    List<String> packageInfoClassNames = new ArrayList<String>();
+                    scanJarForMatchingFiles(packageInfoClassNames, possibleStartingDir, log);
+                    if (packageInfoClassNames.size() > 0) {
+                        for (String packageInfoClassName : packageInfoClassNames) {
+                            try {
+                                PackageInfo pi = new PackageInfo();
+                                Package pkg = cl.loadClass(packageInfoClassName).getPackage();
+                                pi.pkg = pkg;
+                                foundPackages.add(pi);
+                            }
+                            catch (Exception e) {
+                            	if (log != null && log.isLoggable(SEVERE)) {
+                                    log.log(SEVERE, "problem loading " + packageInfoClassName, e);
+                                }
                             }
                         }
                     }
@@ -153,7 +162,7 @@ public class PluginManager {
                     String rootPath = packageInfo.rootPath.getPath();
                     String packageInfoPath = packageInfo.packageInfoClass.getPath();
                     String className = packageInfoPath.substring(rootPath.length()+1,
-                        packageInfoPath.length() - DOT_CLASS.length()).replaceAll("[\\\\,/]", ".");
+                        packageInfoPath.length() - DOT_CLASS.length()).replaceAll(SLASH_REGEX, ".");
                     try {
                         Package pkg = cl.loadClass(className).getPackage();
                         packageInfo.pkg = pkg;
@@ -313,7 +322,7 @@ public class PluginManager {
                 String name = entries.nextElement().toString();
                 if (name.endsWith(PACKAGE_INFO_CLASS)) {
                     String className = name.substring(0, name.length() - DOT_CLASS.length())
-                        .replaceAll("[\\\\,/]", ".");
+                        .replaceAll(SLASH_REGEX, ".");
                     if (log != null && log.isLoggable(FINEST)) {
                         StringBuilder sb = new StringBuilder("scan found class ");
                         sb.append(className);
